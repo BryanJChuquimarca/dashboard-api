@@ -82,6 +82,23 @@ require("dotenv").config();
 var body_parser_1 = __importDefault(require("body-parser"));
 var jsonParser = body_parser_1.default.json();
 var db = __importStar(require("./db-connection"));
+var authMiddleware = function (req, res, next) {
+    var authHeader = req.headers["authorization"];
+    if (!authHeader)
+        return res.status(401).json({ message: "No token provided" });
+    var token = authHeader.split(" ")[1];
+    try {
+        var payload = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = {
+            id: payload.id,
+            email: payload.email,
+        };
+        next();
+    }
+    catch (err) {
+        return res.status(401).json({ message: "Invalid token" });
+    }
+};
 app.post("/api/auth/register", jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var user, query, db_response, err_1;
     var _a;
@@ -162,7 +179,7 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
         }
     });
 }); });
-app.get("/user/", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+app.get("/user/", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var query, db_response, err_3;
     return __generator(this, function (_a) {
         switch (_a.label) {

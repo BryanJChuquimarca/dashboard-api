@@ -1,4 +1,5 @@
 import express from "express";
+import { Request, Response, NextFunction } from "express";
 import cors from "cors";
 const jwt = require("jsonwebtoken");
 const app = express();
@@ -10,6 +11,37 @@ import bodyParser from "body-parser";
 const jsonParser = bodyParser.json();
 
 import * as db from "./db-connection";
+interface AuthRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+  };
+}
+
+const authMiddleware = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader)
+    return res.status(401).json({ message: "No token provided" });
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = {
+      id: payload.id,
+      email: payload.email,
+    };
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};
 
 app.post("/api/auth/register", jsonParser, async (req, res) => {
   console.log(`Petición recibida al endpoint POST /api/auth/register. 
@@ -81,7 +113,7 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
   }
 });
 
-app.get("/user/", async (req, res) => {
+app.get("/user/", authMiddleware, async (req, res) => {
   console.log(`Petición recibida al endpoint GET /user/.`);
 
   try {
