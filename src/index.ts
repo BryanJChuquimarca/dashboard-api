@@ -113,6 +113,11 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
   }
 });
 
+app.get("/api/dashboard/test", authMiddleware, async (req, res) => {
+  console.log(`Petición recibida al endpoint GET /api/dashboard/test.`);
+  res.json("hello user");
+});
+
 app.get("/user/", authMiddleware, async (req, res) => {
   console.log(`Petición recibida al endpoint GET /user/.`);
 

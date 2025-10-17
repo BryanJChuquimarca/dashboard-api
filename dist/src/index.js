@@ -179,6 +179,13 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
         }
     });
 }); });
+app.get("/api/dashboard/test", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    return __generator(this, function (_a) {
+        console.log("Petici\u00F3n recibida al endpoint GET /api/dashboard/test.");
+        res.json("hello user");
+        return [2 /*return*/];
+    });
+}); });
 app.get("/user/", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var query, db_response, err_3;
     return __generator(this, function (_a) {
