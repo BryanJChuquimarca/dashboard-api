@@ -1,9 +1,10 @@
 import express from "express";
 import cors from "cors";
-
+const jwt = require("jsonwebtoken");
 const app = express();
 const bcrypt = require("bcrypt");
 app.use(cors());
+require("dotenv").config();
 
 import bodyParser from "body-parser";
 const jsonParser = bodyParser.json();
@@ -34,6 +35,46 @@ app.post("/api/auth/register", jsonParser, async (req, res) => {
     } else {
       res.json(`El registro NO ha sido creado.`);
     }
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+app.post("/api/auth/login", jsonParser, async (req, res) => {
+  console.log(`Petición recibida al endpoint POST /api/auth/login. 
+        Body: ${JSON.stringify(req.body)}`);
+
+  try {
+    let query = `SELECT * FROM users WHERE email='${req.body.email}'`;
+    let db_response = await db.query(query);
+    console.log(db_response);
+
+    if (db_response.rowCount === 0) {
+      return res
+        .status(401)
+        .json({ message: "Usuario o contraseña incorrectos" });
+    }
+
+    let validPassword = await bcrypt.compare(
+      req.body.password,
+      db_response.rows[0].password_hash
+    );
+
+    if (!validPassword) {
+      return res.status(401).json("Invalid password");
+    }
+
+    const token = jwt.sign(
+      {
+        id: db_response.rows[0].id,
+        email: db_response.rows[0].email,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({ token, message: "Login successful" });
   } catch (err) {
     console.error(err);
     res.status(500).send("Internal Server Error");

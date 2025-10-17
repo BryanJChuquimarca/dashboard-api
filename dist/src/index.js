@@ -74,9 +74,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var express_1 = __importDefault(require("express"));
 var cors_1 = __importDefault(require("cors"));
+var jwt = require("jsonwebtoken");
 var app = (0, express_1.default)();
 var bcrypt = require("bcrypt");
 app.use((0, cors_1.default)());
+require("dotenv").config();
 var body_parser_1 = __importDefault(require("body-parser"));
 var jsonParser = body_parser_1.default.json();
 var db = __importStar(require("./db-connection"));
@@ -120,8 +122,48 @@ app.post("/api/auth/register", jsonParser, function (req, res) { return __awaite
         }
     });
 }); });
+app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var query, db_response, validPassword, token, err_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                console.log("Petici\u00F3n recibida al endpoint POST /api/auth/login. \n        Body: ".concat(JSON.stringify(req.body)));
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 4, , 5]);
+                query = "SELECT * FROM users WHERE email='".concat(req.body.email, "'");
+                return [4 /*yield*/, db.query(query)];
+            case 2:
+                db_response = _a.sent();
+                console.log(db_response);
+                if (db_response.rowCount === 0) {
+                    return [2 /*return*/, res
+                            .status(401)
+                            .json({ message: "Usuario o contraseña incorrectos" })];
+                }
+                return [4 /*yield*/, bcrypt.compare(req.body.password, db_response.rows[0].password_hash)];
+            case 3:
+                validPassword = _a.sent();
+                if (!validPassword) {
+                    return [2 /*return*/, res.status(401).json("Invalid password")];
+                }
+                token = jwt.sign({
+                    id: db_response.rows[0].id,
+                    email: db_response.rows[0].email,
+                }, process.env.JWT_SECRET, { expiresIn: "1h" });
+                res.json({ token: token, message: "Login successful" });
+                return [3 /*break*/, 5];
+            case 4:
+                err_2 = _a.sent();
+                console.error(err_2);
+                res.status(500).send("Internal Server Error");
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
 app.get("/user/", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var query, db_response, err_2;
+    var query, db_response, err_3;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -143,8 +185,8 @@ app.get("/user/", function (req, res) { return __awaiter(void 0, void 0, void 0,
                 }
                 return [3 /*break*/, 4];
             case 3:
-                err_2 = _a.sent();
-                console.error(err_2);
+                err_3 = _a.sent();
+                console.error(err_3);
                 res.status(500).send("Internal Server Error");
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
