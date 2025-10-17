@@ -75,12 +75,53 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var express_1 = __importDefault(require("express"));
 var cors_1 = __importDefault(require("cors"));
 var app = (0, express_1.default)();
+var bcrypt = require("bcrypt");
 app.use((0, cors_1.default)());
 var body_parser_1 = __importDefault(require("body-parser"));
 var jsonParser = body_parser_1.default.json();
 var db = __importStar(require("./db-connection"));
-app.get('/user/', function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var query, db_response, err_1;
+app.post("/api/auth/register", jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var user, query, db_response, err_1;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                console.log("Petici\u00F3n recibida al endpoint POST /api/auth/register. \n        Body: ".concat(JSON.stringify(req.body)));
+                _a = {
+                    email: req.body.email,
+                    name: req.body.name
+                };
+                return [4 /*yield*/, bcrypt.hash(req.body.password, 10)];
+            case 1:
+                user = (_a.password_hash = _b.sent(),
+                    _a.created_at = new Date().toISOString().split("T")[0],
+                    _a);
+                _b.label = 2;
+            case 2:
+                _b.trys.push([2, 4, , 5]);
+                query = "INSERT INTO users (email, name, password_hash, created_at)\n        VALUES ('".concat(user.email, "', '").concat(user.name, "', '").concat(user.password_hash, "', '").concat(user.created_at, "');");
+                return [4 /*yield*/, db.query(query)];
+            case 3:
+                db_response = _b.sent();
+                console.log(db_response);
+                if (db_response.rowCount == 1) {
+                    res.json("El registro ha sido creado correctamente.");
+                }
+                else {
+                    res.json("El registro NO ha sido creado.");
+                }
+                return [3 /*break*/, 5];
+            case 4:
+                err_1 = _b.sent();
+                console.error(err_1);
+                res.status(500).send("Internal Server Error");
+                return [3 /*break*/, 5];
+            case 5: return [2 /*return*/];
+        }
+    });
+}); });
+app.get("/user/", function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var query, db_response, err_2;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -102,39 +143,9 @@ app.get('/user/', function (req, res) { return __awaiter(void 0, void 0, void 0,
                 }
                 return [3 /*break*/, 4];
             case 3:
-                err_1 = _a.sent();
-                console.error(err_1);
-                res.status(500).send('Internal Server Error');
-                return [3 /*break*/, 4];
-            case 4: return [2 /*return*/];
-        }
-    });
-}); });
-app.post('/user', jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var query, db_response, err_2;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                console.log("Petici\u00F3n recibida al endpoint POST /user. \n        Body: ".concat(JSON.stringify(req.body)));
-                _a.label = 1;
-            case 1:
-                _a.trys.push([1, 3, , 4]);
-                query = "INSERT INTO usuarios \n        VALUES ('".concat(req.body.id, "', '").concat(req.body.nombre, "');");
-                return [4 /*yield*/, db.query(query)];
-            case 2:
-                db_response = _a.sent();
-                console.log(db_response);
-                if (db_response.rowCount == 1) {
-                    res.json("El registro ha sido creado correctamente.");
-                }
-                else {
-                    res.json("El registro NO ha sido creado.");
-                }
-                return [3 /*break*/, 4];
-            case 3:
                 err_2 = _a.sent();
                 console.error(err_2);
-                res.status(500).send('Internal Server Error');
+                res.status(500).send("Internal Server Error");
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
