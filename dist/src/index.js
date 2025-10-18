@@ -186,6 +186,49 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
         }
     });
 }); });
+app.post("/api/dashboard", authMiddleware, jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var dashboard, query, db_response, err_3;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                console.log("Petici\u00F3n recibida al endpoint POST /api/dashboard. \n        Body: ".concat(JSON.stringify(req.body)));
+                dashboard = {
+                    title: req.body.title,
+                    description: req.body.description,
+                    status: req.body.status,
+                    user_id: (_a = req.user) === null || _a === void 0 ? void 0 : _a.id,
+                    created_at: new Date().toISOString().split("T")[0],
+                };
+                _b.label = 1;
+            case 1:
+                _b.trys.push([1, 3, , 4]);
+                query = "INSERT INTO dashboard_data (title, description, status, user_id, created_at)\n        VALUES ($1, $2, $3, $4, $5) RETURNING *;";
+                return [4 /*yield*/, db.query(query, [
+                        dashboard.title,
+                        dashboard.description,
+                        dashboard.status,
+                        dashboard.user_id,
+                        dashboard.created_at,
+                    ])];
+            case 2:
+                db_response = _b.sent();
+                console.log(db_response);
+                if (db_response.rowCount === 1) {
+                    return [2 /*return*/, res.status(201).json(db_response.rows[0])];
+                }
+                else {
+                    return [2 /*return*/, res.status(400).json({ message: "Insert failed" })];
+                }
+                return [3 /*break*/, 4];
+            case 3:
+                err_3 = _b.sent();
+                console.error(err_3);
+                return [2 /*return*/, res.status(500).send("Internal Server Error")];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 app.get("/api/dashboard/test", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         console.log("Petici\u00F3n recibida al endpoint GET /api/dashboard/test.");
@@ -194,7 +237,7 @@ app.get("/api/dashboard/test", authMiddleware, function (req, res) { return __aw
     });
 }); });
 app.get("/user/", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var query, db_response, err_3;
+    var query, db_response, err_4;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -216,8 +259,8 @@ app.get("/user/", authMiddleware, function (req, res) { return __awaiter(void 0,
                 }
                 return [3 /*break*/, 4];
             case 3:
-                err_3 = _a.sent();
-                console.error(err_3);
+                err_4 = _a.sent();
+                console.error(err_4);
                 res.status(500).send("Internal Server Error");
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];

@@ -120,6 +120,43 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
   }
 });
 
+app.post("/api/dashboard", authMiddleware, jsonParser, async (req, res) => {
+  console.log(`Petición recibida al endpoint POST /api/dashboard. 
+        Body: ${JSON.stringify(req.body)}`);
+
+  const dashboard = {
+    title: req.body.title,
+    description: req.body.description,
+    status: req.body.status,
+    user_id: (req as AuthRequest).user?.id,
+    created_at: new Date().toISOString().split("T")[0],
+  };
+
+  try {
+    let query = `INSERT INTO dashboard_data (title, description, status, user_id, created_at)
+        VALUES ($1, $2, $3, $4, $5) RETURNING *;`;
+
+    let db_response = await db.query(query, [
+      dashboard.title,
+      dashboard.description,
+      dashboard.status,
+      dashboard.user_id,
+      dashboard.created_at,
+    ]);
+
+    console.log(db_response);
+
+    if (db_response.rowCount === 1) {
+      return res.status(201).json(db_response.rows[0]);
+    } else {
+      return res.status(400).json({ message: "Insert failed" });
+    }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send("Internal Server Error");
+  }
+});
+
 app.get("/api/dashboard/test", authMiddleware, async (req, res) => {
   console.log(`Petición recibida al endpoint GET /api/dashboard/test.`);
   res.json("hello user");
