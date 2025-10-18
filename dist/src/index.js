@@ -187,32 +187,24 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
     });
 }); });
 app.post("/api/dashboard", authMiddleware, jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var dashboard, query, db_response, err_3;
-    var _a;
-    return __generator(this, function (_b) {
-        switch (_b.label) {
+    var _a, title, description, status, created_at, userId, db_response, err_3;
+    var _b;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
             case 0:
                 console.log("Petici\u00F3n recibida al endpoint POST /api/dashboard. \n        Body: ".concat(JSON.stringify(req.body)));
-                dashboard = {
-                    title: req.body.title,
-                    description: req.body.description,
-                    status: req.body.status,
-                    user_id: (_a = req.user) === null || _a === void 0 ? void 0 : _a.id,
-                    created_at: new Date().toISOString().split("T")[0],
-                };
-                _b.label = 1;
+                _a = req.body, title = _a.title, description = _a.description, status = _a.status;
+                created_at = new Date().toISOString().split("T")[0];
+                _c.label = 1;
             case 1:
-                _b.trys.push([1, 3, , 4]);
-                query = "INSERT INTO dashboard_data (title, description, status, user_id, created_at)\n        VALUES ($1, $2, $3, $4, $5) RETURNING *;";
-                return [4 /*yield*/, db.query(query, [
-                        dashboard.title,
-                        dashboard.description,
-                        dashboard.status,
-                        dashboard.user_id,
-                        dashboard.created_at,
-                    ])];
+                _c.trys.push([1, 3, , 4]);
+                userId = (_b = req.user) === null || _b === void 0 ? void 0 : _b.id;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                return [4 /*yield*/, db.query("INSERT INTO dashboard_data (title, description, status, user_id, created_at)\n        VALUES ($1, $2, $3, $4, $5) RETURNING *;", [title, description, status, userId, created_at])];
             case 2:
-                db_response = _b.sent();
+                db_response = _c.sent();
                 console.log(db_response);
                 if (db_response.rowCount === 1) {
                     return [2 /*return*/, res.status(201).json(db_response.rows[0])];
@@ -222,46 +214,36 @@ app.post("/api/dashboard", authMiddleware, jsonParser, function (req, res) { ret
                 }
                 return [3 /*break*/, 4];
             case 3:
-                err_3 = _b.sent();
-                console.error(err_3);
+                err_3 = _c.sent();
+                console.error("Error inserting dashboard item:", err_3);
                 return [2 /*return*/, res.status(500).send("Internal Server Error")];
             case 4: return [2 /*return*/];
         }
     });
 }); });
-app.get("/api/dashboard/test", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        console.log("Petici\u00F3n recibida al endpoint GET /api/dashboard/test.");
-        res.json("hello user");
-        return [2 /*return*/];
-    });
-}); });
-app.get("/user/", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var query, db_response, err_4;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
+app.get("/api/dashboard/", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var userId, db_response, err_4;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
             case 0:
-                console.log("Petici\u00F3n recibida al endpoint GET /user/.");
-                _a.label = 1;
+                console.log("Petici\u00F3n recibida al endpoint GET /api/dashboard/.");
+                _b.label = 1;
             case 1:
-                _a.trys.push([1, 3, , 4]);
-                query = "SELECT * FROM users";
-                return [4 /*yield*/, db.query(query)];
+                _b.trys.push([1, 3, , 4]);
+                userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                return [4 /*yield*/, db.query("SELECT * FROM dashboard_data WHERE user_id=$1 ORDER BY created_at DESC;", [userId])];
             case 2:
-                db_response = _a.sent();
-                if (db_response.rows.length > 0) {
-                    console.log("Usuario encontrado: ".concat(db_response.rows[0].id));
-                    res.json(db_response.rows[0]);
-                }
-                else {
-                    console.log("Usuario no encontrado.");
-                    res.json("User not found");
-                }
+                db_response = _b.sent();
+                res.status(200).json(db_response.rows);
                 return [3 /*break*/, 4];
             case 3:
-                err_4 = _a.sent();
-                console.error(err_4);
-                res.status(500).send("Internal Server Error");
+                err_4 = _b.sent();
+                console.error("Error fetching dashboard items:", err_4);
+                res.status(500).json({ message: "Internal Server Error" });
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }

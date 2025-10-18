@@ -124,25 +124,19 @@ app.post("/api/dashboard", authMiddleware, jsonParser, async (req, res) => {
   console.log(`Petición recibida al endpoint POST /api/dashboard. 
         Body: ${JSON.stringify(req.body)}`);
 
-  const dashboard = {
-    title: req.body.title,
-    description: req.body.description,
-    status: req.body.status,
-    user_id: (req as AuthRequest).user?.id,
-    created_at: new Date().toISOString().split("T")[0],
-  };
-
+  const { title, description, status } = req.body;
+  const created_at = new Date().toISOString().split("T")[0];
   try {
-    let query = `INSERT INTO dashboard_data (title, description, status, user_id, created_at)
-        VALUES ($1, $2, $3, $4, $5) RETURNING *;`;
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    let db_response = await db.query(query, [
-      dashboard.title,
-      dashboard.description,
-      dashboard.status,
-      dashboard.user_id,
-      dashboard.created_at,
-    ]);
+    let db_response = await db.query(
+      `INSERT INTO dashboard_data (title, description, status, user_id, created_at)
+        VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
+      [title, description, status, userId, created_at]
+    );
 
     console.log(db_response);
 
@@ -152,33 +146,29 @@ app.post("/api/dashboard", authMiddleware, jsonParser, async (req, res) => {
       return res.status(400).json({ message: "Insert failed" });
     }
   } catch (err) {
-    console.error(err);
+    console.error("Error inserting dashboard item:", err);
     return res.status(500).send("Internal Server Error");
   }
 });
 
-app.get("/api/dashboard/test", authMiddleware, async (req, res) => {
-  console.log(`Petición recibida al endpoint GET /api/dashboard/test.`);
-  res.json("hello user");
-});
-
-app.get("/user/", authMiddleware, async (req, res) => {
-  console.log(`Petición recibida al endpoint GET /user/.`);
+app.get("/api/dashboard/", authMiddleware, async (req, res) => {
+  console.log(`Petición recibida al endpoint GET /api/dashboard/.`);
 
   try {
-    let query = `SELECT * FROM users`;
-    let db_response = await db.query(query);
-
-    if (db_response.rows.length > 0) {
-      console.log(`Usuario encontrado: ${db_response.rows[0].id}`);
-      res.json(db_response.rows[0]);
-    } else {
-      console.log(`Usuario no encontrado.`);
-      res.json(`User not found`);
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+
+    const db_response = await db.query(
+      `SELECT * FROM dashboard_data WHERE user_id=$1 ORDER BY created_at DESC;`,
+      [userId]
+    );
+
+    res.status(200).json(db_response.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).send("Internal Server Error");
+    console.error("Error fetching dashboard items:", err);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
