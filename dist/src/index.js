@@ -118,8 +118,13 @@ app.post("/api/auth/register", jsonParser, function (req, res) { return __awaite
                 _b.label = 2;
             case 2:
                 _b.trys.push([2, 4, , 5]);
-                query = "INSERT INTO users (email, name, password_hash, created_at)\n        VALUES ('".concat(user.email, "', '").concat(user.name, "', '").concat(user.password_hash, "', '").concat(user.created_at, "');");
-                return [4 /*yield*/, db.query(query)];
+                query = "INSERT INTO users (email, name, password_hash, created_at)\n        VALUES ($1, $2, $3, $4);";
+                return [4 /*yield*/, db.query(query, [
+                        user.email,
+                        user.name,
+                        user.password_hash,
+                        user.created_at,
+                    ])];
             case 3:
                 db_response = _b.sent();
                 console.log(db_response);
@@ -148,8 +153,8 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 4, , 5]);
-                query = "SELECT * FROM users WHERE email='".concat(req.body.email, "'");
-                return [4 /*yield*/, db.query(query)];
+                query = "SELECT * FROM users WHERE email=$1";
+                return [4 /*yield*/, db.query(query, [req.body.email])];
             case 2:
                 db_response = _a.sent();
                 console.log(db_response);
@@ -162,7 +167,9 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
             case 3:
                 validPassword = _a.sent();
                 if (!validPassword) {
-                    return [2 /*return*/, res.status(401).json("Invalid password")];
+                    return [2 /*return*/, res
+                            .status(401)
+                            .json({ message: "Usuario o contraseña incorrectos" })];
                 }
                 token = jwt.sign({
                     id: db_response.rows[0].id,

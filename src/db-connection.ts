@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, QueryResult } from 'pg';
 
 const pool = new Pool({
   user: 'postgres',
@@ -8,6 +8,6 @@ const pool = new Pool({
   database: 'dashboard_db'
 });
 
-export function query(text: any): any {
-    return pool.query(text);
+export function query(text: string, params?: any[]): Promise<QueryResult> {
+    return pool.query(text, params);
 };

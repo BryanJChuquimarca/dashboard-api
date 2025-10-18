@@ -56,9 +56,14 @@ app.post("/api/auth/register", jsonParser, async (req, res) => {
 
   try {
     let query = `INSERT INTO users (email, name, password_hash, created_at)
-        VALUES ('${user.email}', '${user.name}', '${user.password_hash}', '${user.created_at}');`;
+        VALUES ($1, $2, $3, $4);`;
 
-    let db_response = await db.query(query);
+    let db_response = await db.query(query, [
+      user.email,
+      user.name,
+      user.password_hash,
+      user.created_at,
+    ]);
 
     console.log(db_response);
 
@@ -78,8 +83,8 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
         Body: ${JSON.stringify(req.body)}`);
 
   try {
-    let query = `SELECT * FROM users WHERE email='${req.body.email}'`;
-    let db_response = await db.query(query);
+    let query = `SELECT * FROM users WHERE email=$1`;
+    let db_response = await db.query(query, [req.body.email]);
     console.log(db_response);
 
     if (db_response.rowCount === 0) {
@@ -94,7 +99,9 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
     );
 
     if (!validPassword) {
-      return res.status(401).json("Invalid password");
+      return res
+        .status(401)
+        .json({ message: "Usuario o contraseña incorrectos" });
     }
 
     const token = jwt.sign(

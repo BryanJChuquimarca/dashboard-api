@@ -9,7 +9,7 @@ var pool = new pg_1.Pool({
     port: 5432, // default Postgres port
     database: 'dashboard_db'
 });
-function query(text) {
-    return pool.query(text);
+function query(text, params) {
+    return pool.query(text, params);
 }
 ;
