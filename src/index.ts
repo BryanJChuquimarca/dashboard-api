@@ -11,6 +11,7 @@ import bodyParser from "body-parser";
 const jsonParser = bodyParser.json();
 
 import * as db from "./db-connection";
+
 interface AuthRequest extends Request {
   user?: {
     id: number;
@@ -18,10 +19,15 @@ interface AuthRequest extends Request {
   };
 }
 
+interface JwtPayload {
+  id: number;
+  email: string;
+}
+
 const authMiddleware = (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const authHeader = req.headers["authorization"];
   if (!authHeader)
@@ -30,7 +36,7 @@ const authMiddleware = (
   const token = authHeader.split(" ")[1];
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
 
     req.user = {
       id: payload.id,
@@ -39,10 +45,11 @@ const authMiddleware = (
 
     next();
   } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
+    return res.status(403).json({ message: "Invalid token" });
   }
 };
 
+//añadir usuario
 app.post("/api/auth/register", jsonParser, async (req, res) => {
   console.log(`Petición recibida al endpoint POST /api/auth/register. 
         Body: ${JSON.stringify(req.body)}`);
@@ -78,6 +85,7 @@ app.post("/api/auth/register", jsonParser, async (req, res) => {
   }
 });
 
+//obtener token si el usuario exite
 app.post("/api/auth/login", jsonParser, async (req, res) => {
   console.log(`Petición recibida al endpoint POST /api/auth/login. 
         Body: ${JSON.stringify(req.body)}`);
@@ -95,7 +103,7 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
 
     let validPassword = await bcrypt.compare(
       req.body.password,
-      db_response.rows[0].password_hash
+      db_response.rows[0].password_hash,
     );
 
     if (!validPassword) {
@@ -110,7 +118,7 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
         email: db_response.rows[0].email,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     res.json({ token, message: "Login successful" });
@@ -120,6 +128,7 @@ app.post("/api/auth/login", jsonParser, async (req, res) => {
   }
 });
 
+//añadir item
 app.post("/api/dashboard", authMiddleware, jsonParser, async (req, res) => {
   console.log(`Petición recibida al endpoint POST /api/dashboard. 
         Body: ${JSON.stringify(req.body)}`);
@@ -135,7 +144,7 @@ app.post("/api/dashboard", authMiddleware, jsonParser, async (req, res) => {
     let db_response = await db.query(
       `INSERT INTO dashboard_data (title, description, status, user_id, created_at)
         VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
-      [title, description, status, userId, created_at]
+      [title, description, status, userId, created_at],
     );
 
     console.log(db_response);
@@ -151,6 +160,7 @@ app.post("/api/dashboard", authMiddleware, jsonParser, async (req, res) => {
   }
 });
 
+//obtener items
 app.get("/api/dashboard/", authMiddleware, async (req, res) => {
   console.log(`Petición recibida al endpoint GET /api/dashboard/.`);
 
@@ -162,7 +172,7 @@ app.get("/api/dashboard/", authMiddleware, async (req, res) => {
 
     const db_response = await db.query(
       `SELECT * FROM dashboard_data WHERE user_id=$1 ORDER BY created_at DESC;`,
-      [userId]
+      [userId],
     );
 
     res.status(200).json(db_response.rows);
@@ -172,6 +182,89 @@ app.get("/api/dashboard/", authMiddleware, async (req, res) => {
   }
 });
 
+//actualizar item
+app.patch(
+  "/api/dashboard/:id",
+  authMiddleware,
+  jsonParser,
+  async (req, res) => {
+    console.log(`Petición recibida al endpoint PATCH /api/dashboard/:id. 
+        Body: ${JSON.stringify(req.body)}`);
+
+    try {
+      const userId = (req as AuthRequest).user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const itemId = parseInt(req.params.id, 10);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+      }
+
+      const { title, description, status } = req.body;
+
+      if (!title && !description && !status) {
+        return res
+          .status(400)
+          .json({ message: "At least one field is required" });
+      }
+
+      const query = `UPDATE dashboard_data 
+      SET title = COALESCE($1, title),
+          description = COALESCE($2, description),
+          status = COALESCE($3, status)
+      WHERE id=$4 AND user_id=$5
+      RETURNING *;`;
+
+      const db_response = await db.query(query, [
+        title || null,
+        description || null,
+        status || null,
+        itemId,
+        userId,
+      ]);
+
+      if (db_response.rowCount === 0) {
+        return res
+          .status(404)
+          .json({ message: "Item not found or not owned by user" });
+      }
+
+      return res.status(200).json(db_response.rows[0]);
+    } catch (err) {
+      console.error("Error updating dashboard item:", err);
+      return res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
+);
+
+//delete
+app.delete("/api/dashboard/:id", authMiddleware, async (req, res) => {
+  console.log(`Peticion recibida al endpoint DELETE /api/dashboard/.`);
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const itemId = parseInt(req.params.id, 10);
+    if (isNaN(itemId)) {
+      return res.status(400).json({ message: "Invalid item ID" });
+    }
+    const query = `DELETE FROM dashboard_data WHERE id=$1 AND user_id=$2`;
+    const db_response = await db.query(query, [itemId, userId]);
+
+    if (db_response.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ message: "Item not found or not owned by user" });
+    }
+    return res.status(200).json({ message: "Item deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting dashboard items:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 const port = process.env.PORT || 3000;
 
 app.listen(port, () =>
@@ -179,7 +272,11 @@ app.listen(port, () =>
 
     ENDPOINTS:
     
-     - GET /user/:email
-     - POST /user
-     `)
+     - POST /api/auth/register
+     - POST /api/auth/login
+     - POST /api/dashboard
+     - GET /api/dashboard
+     - PATCH /api/dashboard/:id
+     - DELETE /api/dashboard/:id
+     `),
 );

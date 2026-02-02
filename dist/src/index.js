@@ -96,9 +96,10 @@ var authMiddleware = function (req, res, next) {
         next();
     }
     catch (err) {
-        return res.status(401).json({ message: "Invalid token" });
+        return res.status(403).json({ message: "Invalid token" });
     }
 };
+//añadir usuario
 app.post("/api/auth/register", jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var user, query, db_response, err_1;
     var _a;
@@ -144,6 +145,7 @@ app.post("/api/auth/register", jsonParser, function (req, res) { return __awaite
         }
     });
 }); });
+//obtener token si el usuario exite
 app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var query, db_response, validPassword, token, err_2;
     return __generator(this, function (_a) {
@@ -186,6 +188,7 @@ app.post("/api/auth/login", jsonParser, function (req, res) { return __awaiter(v
         }
     });
 }); });
+//añadir item
 app.post("/api/dashboard", authMiddleware, jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var _a, title, description, status, created_at, userId, db_response, err_3;
     var _b;
@@ -221,6 +224,7 @@ app.post("/api/dashboard", authMiddleware, jsonParser, function (req, res) { ret
         }
     });
 }); });
+//obtener items
 app.get("/api/dashboard/", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
     var userId, db_response, err_4;
     var _a;
@@ -249,7 +253,46 @@ app.get("/api/dashboard/", authMiddleware, function (req, res) { return __awaite
         }
     });
 }); });
+//delete
+app.delete("/api/dashboard/:id", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var userId, itemId, query, db_response, err_5;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                console.log("Peticion recibida al endpoint DELETE /api/dashboard/.");
+                _b.label = 1;
+            case 1:
+                _b.trys.push([1, 3, , 4]);
+                userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                itemId = parseInt(req.params.id, 10);
+                if (isNaN(itemId)) {
+                    return [2 /*return*/, res.status(400).json({ message: "Invalid item ID" })];
+                }
+                query = "DELETE FROM dashboard_data WHERE id=$1 AND user_id=$2";
+                return [4 /*yield*/, db.query(query, [itemId, userId])];
+            case 2:
+                db_response = _b.sent();
+                if (db_response.rowCount === 0) {
+                    return [2 /*return*/, res
+                            .status(404)
+                            .json({ message: "Item not found or not owned by user" })];
+                }
+                return [2 /*return*/, res.status(200).json({ message: "Item deleted successfully" })];
+            case 3:
+                err_5 = _b.sent();
+                console.error("Error deleting dashboard items:", err_5);
+                return [2 /*return*/, res.status(500).json({ message: "Internal Server Error" })];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+/*app.put("")
+ */
 var port = process.env.PORT || 3000;
 app.listen(port, function () {
-    return console.log("App listening on PORT ".concat(port, ".\n\n    ENDPOINTS:\n    \n     - GET /user/:email\n     - POST /user\n     "));
+    return console.log("App listening on PORT ".concat(port, ".\n\n    ENDPOINTS:\n    \n     - POST /api/auth/register\n     - POST /api/auth/login\n     - POST /api/dashboard\n     - GET /api/dashboard\n     "));
 });
