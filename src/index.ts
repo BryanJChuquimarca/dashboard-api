@@ -11,6 +11,7 @@ import bodyParser from "body-parser";
 const jsonParser = bodyParser.json();
 
 import * as db from "./db-connection";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface AuthRequest extends Request {
   user?: {
@@ -23,6 +24,8 @@ interface JwtPayload {
   id: number;
   email: string;
 }
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const authMiddleware = (
   req: AuthRequest,
@@ -265,6 +268,64 @@ app.delete("/api/dashboard/:id", authMiddleware, async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+app.get("/api/dashboard/important", authMiddleware, async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Obtener todos los items del usuario
+    const db_response = await db.query(
+      `SELECT * FROM dashboard_data WHERE user_id=$1 ORDER BY created_at DESC;`,
+      [userId],
+    );
+    const items = db_response.rows;
+    if (!items || items.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const prompt = `
+    Eres un asistente que ayuda a priorizar tareas. Analiza la siguiente lista de items y cada uno de sus campos
+    (cada uno tiene id, título, descripción, estado y fecha de creación estos los tienes que tener en cuenta) y responde SOLO con
+    un array JSON de los IDs de los 3 items más importantes para el usuario, considerando título, descripción, estado en el que se encuentra y fecha de creacion.
+    No expliques nada, solo responde el array de IDs.\n\nItems: ${JSON.stringify(items)}`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    let importantIds = [];
+    try {
+      importantIds = JSON.parse(text);
+    } catch (e) {
+      const match = text.match(/\[.*?\]/);
+      if (match) {
+        try {
+          importantIds = JSON.parse(match[0]);
+        } catch (e2) {
+          return res.status(500).json({
+            message: "Error procesando respuesta de Gemini",
+            raw: text,
+          });
+        }
+      } else {
+        return res
+          .status(500)
+          .json({ message: "Respuesta inesperada de Gemini", raw: text });
+      }
+    }
+    const importantItems = items.filter((item: any) =>
+      importantIds.includes(item.id),
+    );
+    res.status(200).json(importantItems);
+  } catch (err) {
+    console.error("Error en /api/dashboard/important:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+
+});
+
 const port = process.env.PORT || 3000;
 
 app.listen(port, () =>

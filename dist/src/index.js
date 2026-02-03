@@ -82,6 +82,8 @@ require("dotenv").config();
 var body_parser_1 = __importDefault(require("body-parser"));
 var jsonParser = body_parser_1.default.json();
 var db = __importStar(require("./db-connection"));
+var generative_ai_1 = require("@google/generative-ai");
+var genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 var authMiddleware = function (req, res, next) {
     var authHeader = req.headers["authorization"];
     if (!authHeader)
@@ -253,9 +255,58 @@ app.get("/api/dashboard/", authMiddleware, function (req, res) { return __awaite
         }
     });
 }); });
+//actualizar item
+app.patch("/api/dashboard/:id", authMiddleware, jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var userId, itemId, _a, title, description, status_1, query, db_response, err_5;
+    var _b;
+    return __generator(this, function (_c) {
+        switch (_c.label) {
+            case 0:
+                console.log("Petici\u00F3n recibida al endpoint PATCH /api/dashboard/:id. \n        Body: ".concat(JSON.stringify(req.body)));
+                _c.label = 1;
+            case 1:
+                _c.trys.push([1, 3, , 4]);
+                userId = (_b = req.user) === null || _b === void 0 ? void 0 : _b.id;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                itemId = parseInt(req.params.id, 10);
+                if (isNaN(itemId)) {
+                    return [2 /*return*/, res.status(400).json({ message: "Invalid item ID" })];
+                }
+                _a = req.body, title = _a.title, description = _a.description, status_1 = _a.status;
+                if (!title && !description && !status_1) {
+                    return [2 /*return*/, res
+                            .status(400)
+                            .json({ message: "At least one field is required" })];
+                }
+                query = "UPDATE dashboard_data \n      SET title = COALESCE($1, title),\n          description = COALESCE($2, description),\n          status = COALESCE($3, status)\n      WHERE id=$4 AND user_id=$5\n      RETURNING *;";
+                return [4 /*yield*/, db.query(query, [
+                        title || null,
+                        description || null,
+                        status_1 || null,
+                        itemId,
+                        userId,
+                    ])];
+            case 2:
+                db_response = _c.sent();
+                if (db_response.rowCount === 0) {
+                    return [2 /*return*/, res
+                            .status(404)
+                            .json({ message: "Item not found or not owned by user" })];
+                }
+                return [2 /*return*/, res.status(200).json(db_response.rows[0])];
+            case 3:
+                err_5 = _c.sent();
+                console.error("Error updating dashboard item:", err_5);
+                return [2 /*return*/, res.status(500).json({ message: "Internal Server Error" })];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 //delete
 app.delete("/api/dashboard/:id", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
-    var userId, itemId, query, db_response, err_5;
+    var userId, itemId, query, db_response, err_6;
     var _a;
     return __generator(this, function (_b) {
         switch (_b.label) {
@@ -283,16 +334,75 @@ app.delete("/api/dashboard/:id", authMiddleware, function (req, res) { return __
                 }
                 return [2 /*return*/, res.status(200).json({ message: "Item deleted successfully" })];
             case 3:
-                err_5 = _b.sent();
-                console.error("Error deleting dashboard items:", err_5);
+                err_6 = _b.sent();
+                console.error("Error deleting dashboard items:", err_6);
                 return [2 /*return*/, res.status(500).json({ message: "Internal Server Error" })];
             case 4: return [2 /*return*/];
         }
     });
 }); });
-/*app.put("")
- */
+app.get("/api/dashboard/important", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var userId, db_response, items, prompt_1, model, result, text, importantIds_1, match, importantItems, err_7;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                _b.trys.push([0, 3, , 4]);
+                userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                return [4 /*yield*/, db.query("SELECT * FROM dashboard_data WHERE user_id=$1 ORDER BY created_at DESC;", [userId])];
+            case 1:
+                db_response = _b.sent();
+                items = db_response.rows;
+                if (!items || items.length === 0) {
+                    return [2 /*return*/, res.status(200).json([])];
+                }
+                prompt_1 = "\n    Eres un asistente que ayuda a priorizar tareas. Analiza la siguiente lista de items y cada uno de sus campos\n    (cada uno tiene id, t\u00EDtulo, descripci\u00F3n, estado y fecha de creaci\u00F3n estos los tienes que tener en cuenta) y responde SOLO con\n    un array JSON de los IDs de los 3 items m\u00E1s importantes para el usuario, considerando t\u00EDtulo, descripci\u00F3n, estado en el que se encuentra y fecha de creacion.\n    No expliques nada, solo responde el array de IDs.\n\nItems: ".concat(JSON.stringify(items));
+                model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                return [4 /*yield*/, model.generateContent(prompt_1)];
+            case 2:
+                result = _b.sent();
+                text = result.response.text();
+                importantIds_1 = [];
+                try {
+                    importantIds_1 = JSON.parse(text);
+                }
+                catch (e) {
+                    match = text.match(/\[.*?\]/);
+                    if (match) {
+                        try {
+                            importantIds_1 = JSON.parse(match[0]);
+                        }
+                        catch (e2) {
+                            return [2 /*return*/, res.status(500).json({
+                                    message: "Error procesando respuesta de Gemini",
+                                    raw: text,
+                                })];
+                        }
+                    }
+                    else {
+                        return [2 /*return*/, res
+                                .status(500)
+                                .json({ message: "Respuesta inesperada de Gemini", raw: text })];
+                    }
+                }
+                importantItems = items.filter(function (item) {
+                    return importantIds_1.includes(item.id);
+                });
+                res.status(200).json(importantItems);
+                return [3 /*break*/, 4];
+            case 3:
+                err_7 = _b.sent();
+                console.error("Error en /api/dashboard/important:", err_7);
+                res.status(500).json({ message: "Internal Server Error" });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
 var port = process.env.PORT || 3000;
 app.listen(port, function () {
-    return console.log("App listening on PORT ".concat(port, ".\n\n    ENDPOINTS:\n    \n     - POST /api/auth/register\n     - POST /api/auth/login\n     - POST /api/dashboard\n     - GET /api/dashboard\n     "));
+    return console.log("App listening on PORT ".concat(port, ".\n\n    ENDPOINTS:\n    \n     - POST /api/auth/register\n     - POST /api/auth/login\n     - POST /api/dashboard\n     - GET /api/dashboard\n     - PATCH /api/dashboard/:id\n     - DELETE /api/dashboard/:id\n     "));
 });
