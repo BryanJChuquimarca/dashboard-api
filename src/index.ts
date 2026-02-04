@@ -276,11 +276,11 @@ app.get("/api/dashboard/important", authMiddleware, async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Obtener todos los items del usuario
     const db_response = await db.query(
       `SELECT * FROM dashboard_data WHERE user_id=$1 ORDER BY created_at DESC;`,
       [userId],
     );
+
     const items = db_response.rows;
     if (!items || items.length === 0) {
       return res.status(200).json([]);
@@ -323,7 +323,54 @@ app.get("/api/dashboard/important", authMiddleware, async (req, res) => {
     console.error("Error en /api/dashboard/important:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
+});
 
+app.get("/api/user/profile", authMiddleware, async (req, res) => {
+  console.log(`Petición recibida al endpoint GET /api/dashboard/.`);
+
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const db_response = await db.query(
+      `SELECT id, name, email, created_at FROM users WHERE id=$1;`,
+      [userId],
+    );
+
+    res.status(200).json(db_response.rows);
+  } catch (err) {
+    console.error("Error fetching dashboard items:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+app.patch("/api/user/profile", authMiddleware, jsonParser, async (req, res) => {
+  try {
+    const userId = (req as AuthRequest).user?.id;
+    const { name } = req.body;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (!name || typeof name !== "string" || name.trim() === "") {
+      return res.status(400).json({ message: "Nombre inválido" });
+    }
+    const result = await db.query(
+      `UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email, created_at`,
+      [name.trim(), userId],
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    res.json({
+      message: "Nombre actualizado correctamente",
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Error al actualizar nombre de usuario:", err);
+    res.status(500).json({ message: "Error interno al actualizar nombre" });
+  }
 });
 
 const port = process.env.PORT || 3000;
@@ -337,7 +384,10 @@ app.listen(port, () =>
      - POST /api/auth/login
      - POST /api/dashboard
      - GET /api/dashboard
+     - GET /api/dashboard/important
+     - GET /api/user/profile
      - PATCH /api/dashboard/:id
+     - PATCH /api/user/profile
      - DELETE /api/dashboard/:id
      `),
 );

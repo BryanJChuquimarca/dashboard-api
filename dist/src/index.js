@@ -402,7 +402,70 @@ app.get("/api/dashboard/important", authMiddleware, function (req, res) { return
         }
     });
 }); });
+app.get("/api/user/profile", authMiddleware, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var userId, db_response, err_8;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                console.log("Petici\u00F3n recibida al endpoint GET /api/dashboard/.");
+                _b.label = 1;
+            case 1:
+                _b.trys.push([1, 3, , 4]);
+                userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                return [4 /*yield*/, db.query("SELECT id, name, email, created_at FROM users WHERE id=$1;", [userId])];
+            case 2:
+                db_response = _b.sent();
+                res.status(200).json(db_response.rows);
+                return [3 /*break*/, 4];
+            case 3:
+                err_8 = _b.sent();
+                console.error("Error fetching dashboard items:", err_8);
+                res.status(500).json({ message: "Internal Server Error" });
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
+        }
+    });
+}); });
+app.patch("/api/user/profile", authMiddleware, jsonParser, function (req, res) { return __awaiter(void 0, void 0, void 0, function () {
+    var userId, name_1, result, err_9;
+    var _a;
+    return __generator(this, function (_b) {
+        switch (_b.label) {
+            case 0:
+                _b.trys.push([0, 2, , 3]);
+                userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+                name_1 = req.body.name;
+                if (!userId) {
+                    return [2 /*return*/, res.status(401).json({ message: "Unauthorized" })];
+                }
+                if (!name_1 || typeof name_1 !== "string" || name_1.trim() === "") {
+                    return [2 /*return*/, res.status(400).json({ message: "Nombre inválido" })];
+                }
+                return [4 /*yield*/, db.query("UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name, email, created_at", [name_1.trim(), userId])];
+            case 1:
+                result = _b.sent();
+                if (result.rowCount === 0) {
+                    return [2 /*return*/, res.status(404).json({ message: "Usuario no encontrado" })];
+                }
+                res.json({
+                    message: "Nombre actualizado correctamente",
+                    user: result.rows[0],
+                });
+                return [3 /*break*/, 3];
+            case 2:
+                err_9 = _b.sent();
+                console.error("Error al actualizar nombre de usuario:", err_9);
+                res.status(500).json({ message: "Error interno al actualizar nombre" });
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
 var port = process.env.PORT || 3000;
 app.listen(port, function () {
-    return console.log("App listening on PORT ".concat(port, ".\n\n    ENDPOINTS:\n    \n     - POST /api/auth/register\n     - POST /api/auth/login\n     - POST /api/dashboard\n     - GET /api/dashboard\n     - PATCH /api/dashboard/:id\n     - DELETE /api/dashboard/:id\n     "));
+    return console.log("App listening on PORT ".concat(port, ".\n\n    ENDPOINTS:\n    \n     - POST /api/auth/register\n     - POST /api/auth/login\n     - POST /api/dashboard\n     - GET /api/dashboard\n     - GET /api/dashboard/important\n     - GET /api/user/profile\n     - PATCH /api/dashboard/:id\n     - PATCH /api/user/profile\n     - DELETE /api/dashboard/:id\n     "));
 });
