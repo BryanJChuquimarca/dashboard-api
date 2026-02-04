@@ -5,11 +5,11 @@ var pg_1 = require("pg");
 var pool = new pg_1.Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    // user: 'postgres',
-    // password: '0645',
-    // host: 'localhost',
+    // user: "postgres",
+    // password: "0645",
+    // host: "localhost",
     // port: 5432, // default Postgres port
-    // database: 'dashboard_db'
+    // database: "dashboard_db",
 });
 function query(text, params) {
     return pool.query(text, params);
